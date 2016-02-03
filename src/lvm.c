@@ -737,11 +737,19 @@ void luaV_finishOp (lua_State *L) {
                          Protect(L->top = ci->top));  /* restore top */ \
            luai_threadyield(L); }
 
+#define vmlabel(l)   do_ ## l
+#define vmcase(l)   vmlabel(l):
 
-#define vmdispatch(o)	switch(o)
-#define vmcase(l)	case l:
-#define vmbreak		break
+#define vmbreak \
+    i = *(ci->u.l.savedpc++); \
+    if (L->hookmask & (LUA_MASKLINE | LUA_MASKCOUNT)) \
+      Protect(luaG_traceexec(L)); \
+    ra = RA(i); \
+    lua_assert(base == ci->u.l.base); \
+    lua_assert(base <= L->top && L->top < L->stack + L->stacksize); \
+    goto *dispatch_table[GET_OPCODE(i)];
 
+#define vmdispatch(o)	vmbreak
 
 /*
 ** copy of 'luaV_gettable', but protecting call to potential metamethod
@@ -760,6 +768,57 @@ void luaV_finishOp (lua_State *L) {
 
 
 void luaV_execute (lua_State *L) {
+
+  static void* dispatch_table[] = {
+    &&vmlabel(OP_MOVE),
+    &&vmlabel(OP_LOADK),
+    &&vmlabel(OP_LOADKX),
+    &&vmlabel(OP_LOADBOOL),
+    &&vmlabel(OP_LOADNIL),
+    &&vmlabel(OP_GETUPVAL),
+    &&vmlabel(OP_GETTABUP),
+    &&vmlabel(OP_GETTABLE),
+    &&vmlabel(OP_SETTABUP),
+    &&vmlabel(OP_SETUPVAL),
+    &&vmlabel(OP_SETTABLE),
+    &&vmlabel(OP_NEWTABLE),
+    &&vmlabel(OP_SELF),
+    &&vmlabel(OP_ADD),
+    &&vmlabel(OP_SUB),
+    &&vmlabel(OP_MUL),
+    &&vmlabel(OP_MOD),
+    &&vmlabel(OP_POW),
+    &&vmlabel(OP_DIV),
+    &&vmlabel(OP_IDIV),
+    &&vmlabel(OP_BAND),
+    &&vmlabel(OP_BOR),
+    &&vmlabel(OP_BXOR),
+    &&vmlabel(OP_SHL),
+    &&vmlabel(OP_SHR),
+    &&vmlabel(OP_UNM),
+    &&vmlabel(OP_BNOT),
+    &&vmlabel(OP_NOT),
+    &&vmlabel(OP_LEN),
+    &&vmlabel(OP_CONCAT),
+    &&vmlabel(OP_JMP),
+    &&vmlabel(OP_EQ),
+    &&vmlabel(OP_LT),
+    &&vmlabel(OP_LE),
+    &&vmlabel(OP_TEST),
+    &&vmlabel(OP_TESTSET),
+    &&vmlabel(OP_CALL),
+    &&vmlabel(OP_TAILCALL),
+    &&vmlabel(OP_RETURN),
+    &&vmlabel(OP_FORLOOP),
+    &&vmlabel(OP_FORPREP),
+    &&vmlabel(OP_TFORCALL),
+    &&vmlabel(OP_TFORLOOP),
+    &&vmlabel(OP_SETLIST),
+    &&vmlabel(OP_CLOSURE),
+    &&vmlabel(OP_VARARG),
+    &&vmlabel(OP_EXTRAARG),
+  };
+
   CallInfo *ci = L->ci;
   LClosure *cl;
   TValue *k;
@@ -772,14 +831,9 @@ void luaV_execute (lua_State *L) {
   base = ci->u.l.base;  /* local copy of function's base */
   /* main loop of interpreter */
   for (;;) {
-    Instruction i = *(ci->u.l.savedpc++);
-    StkId ra;
-    if (L->hookmask & (LUA_MASKLINE | LUA_MASKCOUNT))
-      Protect(luaG_traceexec(L));
+    Instruction i;
     /* WARNING: several calls may realloc the stack and invalidate 'ra' */
-    ra = RA(i);
-    lua_assert(base == ci->u.l.base);
-    lua_assert(base <= L->top && L->top < L->stack + L->stacksize);
+    StkId ra;
     vmdispatch (GET_OPCODE(i)) {
       vmcase(OP_MOVE) {
         setobjs2s(L, ra, RB(i));
