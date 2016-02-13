@@ -740,6 +740,8 @@ void luaV_finishOp (lua_State *L) {
 #define vmlabel(l)   do_ ## l
 #define vmcase(l)   vmlabel(l):
 
+#define vmbreak_stringify_core(num) #num
+#define vmbreak_stringify(num_macro) vmbreak_stringify_core(num_macro)
 #define vmbreak \
     i = *(ci->u.l.savedpc++); \
     if (L->hookmask & (LUA_MASKLINE | LUA_MASKCOUNT)) \
@@ -749,7 +751,7 @@ void luaV_finishOp (lua_State *L) {
     lua_assert(base <= L->top && L->top < L->stack + L->stacksize); \
     {\
       void *label = dispatch_table[GET_OPCODE(i)];\
-      __asm__("# " __FILE__ " %0" :: "i"(__LINE__));\
+      __asm__("# " __FILE__ " " vmbreak_stringify(__LINE__));\
       goto *label;\
     }
 
