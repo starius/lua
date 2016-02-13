@@ -749,7 +749,7 @@ void luaV_finishOp (lua_State *L) {
     lua_assert(base <= L->top && L->top < L->stack + L->stacksize); \
     {\
       void *label = dispatch_table[GET_OPCODE(i)];\
-      __asm__("# " __FILE__" %0" :: "i"(__LINE__));\
+      __asm__("# " __FILE__ " %0" :: "i"(__LINE__));\
       goto *label;\
     }
 
